@@ -1,14 +1,14 @@
 {
   "name": "mothership",
   "version": "0.1.0",
-  "bin": {
-    "mothership": "bin/mothership.js"
-  },
+  "main": "dist/lib/app.js",
+  "types": "dist/types/app.d.ts",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "clean": "rm -rf dist && rm -rf cdk.out"
   },
   "devDependencies": {
     "@types/jest": "^29.4.0",
