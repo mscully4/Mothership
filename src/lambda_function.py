@@ -108,7 +108,6 @@ def process_event_card(event_card: ElementHandle) -> Optional[MothershipEvent]:
         mothership_event = MothershipEvent(
             date=dt, title=title, time=time, room=room, ticket_type=ticket_type
         )
-        logger.info("Created MothershipEvent: %s", mothership_event)
         return mothership_event
     # This is overly broad, but I don't want one potential failure to tank the entire
     # lambda invocation
