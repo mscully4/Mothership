@@ -82,8 +82,8 @@ export class MothershipStack extends Stack {
     });
 
     // Create a CloudWatch Events rule to trigger the Lambda function every 10 minutes
-    const rule = new Rule(this, "RunEveryTenMinutesRule", {
-      schedule: Schedule.rate(Duration.minutes(10)),
+    const rule = new Rule(this, "RunEveryFiveMinutesRule", {
+      schedule: Schedule.rate(Duration.minutes(5)),
     });
 
     // Add the Lambda function as a target of the CloudWatch Events rule
