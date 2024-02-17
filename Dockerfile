@@ -28,4 +28,4 @@ COPY ./src/ ./
 
 # Use the python lambda docker runtime environment
 ENTRYPOINT [ "/usr/bin/python3", "-m", "awslambdaric" ]
-CMD ["lambda_function.lambda_handler"]
+CMD ["main.process_event"]

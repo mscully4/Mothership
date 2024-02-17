@@ -1,0 +1,7 @@
+.mypy_cache
+.vscode
+cdk.out
+dist
+lib
+node_modules
+venv
