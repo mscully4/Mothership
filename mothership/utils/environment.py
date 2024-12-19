@@ -8,4 +8,4 @@ def get_default_or_mapping_item(
     if field.default is not dataclasses.MISSING and field.name.upper() not in mapping:
         return field.default
 
-    return field.type(mapping[field.name.upper()]) # type: ignore
+    return field.type(mapping[field.name.upper()])  # type: ignore

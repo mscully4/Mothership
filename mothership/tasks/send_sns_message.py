@@ -30,8 +30,7 @@ class EnvironmentConfig:
         cls, env: Mapping[str, Any] = os.environ
     ) -> "EnvironmentConfig":
         kwargs = {
-            field.name: get_default_or_mapping_item(field, env)
-            for field in fields(cls)
+            field.name: get_default_or_mapping_item(field, env) for field in fields(cls)
         }
         return cls(**kwargs)  # type:ignore
 

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class MothershipEvent:
     _id: str
@@ -16,6 +17,6 @@ class MothershipEvent:
                 f"Title: {self.title}",
                 f"Datetime: {self.dt}",
                 f"Room: {self.room}",
-                f"Url: {self.url}"
+                f"Url: {self.url}",
             ]
         )
