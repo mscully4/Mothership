@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "mothership"
+version = "0.1.0"
+description = ""
+authors = ["Mike <michael.scully1997@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+boto3 = "^1.35.83"
+twilio = "^9.4.1"
+bs4 = "^0.0.2"
+mypy-boto3-dynamodb = "^1.35.74"
+mypy = "^1.13.0"
+ruff = "^0.8.3"
+requests = "^2.32.3"
+types-requests = "^2.32.0.20241016"
+python-json-logger = "^3.2.1"
+awslambdaric = "^3.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+get-new-events = "mothership.tasks.get_new_mothership_events:lambda_handler"

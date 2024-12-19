@@ -6,10 +6,10 @@ from typing import Any, Mapping, Optional
 import boto3
 from twilio.rest import Client as TwilioClient
 
-from utils.environment import _get_default_or_mapping_item
-from utils.logging import configure_logging
-from wrappers.twilio_wrapper import TwilioClientWrapper
-from models import MothershipEvent
+from mothership.utils.environment import get_default_or_mapping_item
+from mothership.utils.logging import configure_logging
+from mothership.wrappers.twilio_wrapper import TwilioClientWrapper
+from mothership.models import MothershipEvent
 
 configure_logging(logging.INFO)
 
@@ -30,7 +30,7 @@ class EnvironmentConfig:
         cls, env: Mapping[str, Any] = os.environ
     ) -> "EnvironmentConfig":
         kwargs = {
-            field.name: _get_default_or_mapping_item(field, env)
+            field.name: get_default_or_mapping_item(field, env)
             for field in fields(cls)
         }
         return cls(**kwargs)  # type:ignore

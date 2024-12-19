@@ -1,4 +1,4 @@
-import { Duration, Stack } from "aws-cdk-lib";
+import { Duration, Stack, StackProps } from "aws-cdk-lib";
 import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
 import { Rule, Schedule } from "aws-cdk-lib/aws-events";
 import { SfnStateMachine } from "aws-cdk-lib/aws-events-targets";
@@ -19,7 +19,7 @@ import {
 } from "aws-cdk-lib/aws-stepfunctions-tasks";
 import { Construct } from "constructs";
 
-export interface MothershipStackProps {}
+export interface MothershipStackProps extends StackProps {}
 
 export class MothershipStack extends Stack {
   constructor(scope: Construct, id: string, props?: MothershipStackProps) {

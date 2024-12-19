@@ -1,7 +1,8 @@
 import os
 from typing import Any
-from src.exceptions import MissingEnvironmentVariableException, HandlerNotFoundException
-from tasks import get_new_mothership_events, send_sms_message
+from mothership.exceptions import MissingEnvironmentVariableException, HandlerNotFoundException
+from mothership.tasks import get_new_mothership_events
+from mothership.tasks import send_sns_message
 from enum import Enum, auto
 
 
@@ -12,7 +13,7 @@ class HandlerNames(Enum):
 
 HANDLERS = {
     HandlerNames.GET_NEW_MOTHERSHIP_EVENTS.name: get_new_mothership_events.lambda_handler,
-    HandlerNames.SEND_NOTIFICATION.name: send_sms_message.lambda_handler,
+    HandlerNames.SEND_NOTIFICATION.name: send_sns_message.lambda_handler,
 }
 
 

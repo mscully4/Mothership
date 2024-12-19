@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright/python:v1.21.0-focal
+FROM public.ecr.aws/docker/library/python:3.12
 
 RUN apt-get update && \
     apt-get install -y \
@@ -17,15 +17,11 @@ COPY requirements.txt ./
 # Install dependencies
 ENV PIP_ROOT_USER_ACTION=ignore
 RUN python3 -m pip install -r requirements.txt
-
-# I don't understand why I need to do this given that I'm using
-# image that should already have the drivers, but I get errors if
-# I don't, will look into later
-RUN python3 -m playwright install
+RUN python3 -m pip install awslambdaric
 
 # Copy the python source code over
-COPY ./src/ ./
+COPY ./ ./
 
 # Use the python lambda docker runtime environment
-ENTRYPOINT [ "/usr/bin/python3", "-m", "awslambdaric" ]
-CMD ["main.process_event"]
+ENTRYPOINT [ "python3", "-m", "awslambdaric" ]
+CMD ["mothership.main.process_event"]

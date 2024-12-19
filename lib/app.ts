@@ -10,7 +10,12 @@ const app = new App();
 const mothershipStack = new MothershipStack(
   app,
   `MothershipStack-${ACCOUNT_NO}-${REGION}`,
-  {}
+  {
+    env: {
+      region: REGION,
+      account: ACCOUNT_NO
+    }
+  }
 );
 
 app.synth();

@@ -9,6 +9,7 @@ cdk.out
 # Python stuff
 venv
 .mypy_cache
+*.pyc
 
 # Random stuff
 .vscode
