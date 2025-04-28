@@ -7,7 +7,6 @@ import boto3
 from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource, Table
 from bs4 import BeautifulSoup
 import requests
-import json
 
 from mothership.utils.environment import get_default_or_mapping_item
 from mothership.utils.logging import configure_logging
@@ -50,26 +49,31 @@ def get_all_events() -> list[MothershipEvent]:
     url = "https://comedymothership.com/shows"
     response = requests.get(url)
 
-    soup = BeautifulSoup(response.content, "html.parser")
-
-    # There will be a script tag with id __NEXT_DATA__ that has all
-    # the shows as a json blob
-    script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
-    data = json.loads(script_tag.string)
-
     mothership_events: list[MothershipEvent] = []
-    for event in data["props"]["pageProps"]["data"]["events"]:
-        modeled_event = MothershipEvent(
-            _id=event["_id"],
-            dt=event["start"],
-            title=event["title"],
-            ticket_availability=event["ticketAvailability"],
-            url=event["url"],
-            room=event["room"]["title"],
-        )
 
-        if modeled_event.ticket_availability == "presale":
+    soup = BeautifulSoup(response.content, "html.parser")
+    elements = soup.select('[class^="EventCard_textWrapper"]')
+    for el in elements:
+        title_el = list(el.select('[class^="EventCard_titleWrapper"]'))
+        if not title_el:
             continue
+
+        event_date = title_el[0].find_next("div").text
+        event_title = title_el[0].find_next("h3").text
+
+        details_el = list(el.select('[class^="EventCard_detailsWrapper"]'))
+        if not details_el:
+            continue
+
+        event_time = list(details_el[0].children)[0].text
+        event_room = list(details_el[0].children)[1].text
+
+        modeled_event = MothershipEvent(
+            title=event_title,
+            dt=event_date,
+            time=event_time,
+            room=event_room,
+        )
 
         mothership_events.append(modeled_event)
 
@@ -83,7 +87,7 @@ def process_new_mothership_events(
     with table.batch_writer() as batch:
         for event in mothership_events:
             key = {
-                "Hash": event._id,
+                "Hash": event.make_hash(),
             }
             resp = table.get_item(Key=key)
 
@@ -98,9 +102,7 @@ def process_new_mothership_events(
     return new_events
 
 
-def lambda_handler(
-    event: Mapping[str, Any] = os.environ, context=None
-) -> list[dict[str, Any]]:
+def lambda_handler(event: Any = None, context: Any = None) -> list[dict[str, Any]]:
     env_config = EnvironmentConfig.from_environment()
 
     all_events: list[MothershipEvent] = get_all_events()
