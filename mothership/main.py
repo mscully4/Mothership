@@ -1,36 +1,29 @@
 import os
 from typing import Any
+
 from mothership.exceptions import (
-    MissingEnvironmentVariableException,
     HandlerNotFoundException,
+    MissingEnvironmentVariableException,
 )
-from mothership.tasks import get_new_mothership_events
-from mothership.tasks import send_sns_message
-from enum import Enum, auto
 
 
-class HandlerNames(Enum):
-    GET_NEW_MOTHERSHIP_EVENTS = auto()
-    SEND_NOTIFICATION = auto()
+def process_event(event: Any, context: Any) -> Any:
+    handler_name = os.environ.get("HANDLER")
 
+    if not handler_name:
+        raise MissingEnvironmentVariableException("Environment variable 'HANDLER' is not set")
 
-HANDLERS = {
-    HandlerNames.GET_NEW_MOTHERSHIP_EVENTS.name: get_new_mothership_events.lambda_handler,
-    HandlerNames.SEND_NOTIFICATION.name: send_sns_message.lambda_handler,
-}
+    if handler_name == "GET_NEW_MOTHERSHIP_EVENTS":
+        from mothership.tasks import get_new_mothership_events
 
+        return get_new_mothership_events.lambda_handler(event, context)
+    elif handler_name == "SEND_NOTIFICATION":
+        from mothership.tasks import send_discord_message
 
-def process_event(event, context: Any):
-    env = dict(os.environ)
+        return send_discord_message.lambda_handler(event, context)
+    elif handler_name == "HANDLE_DISCORD_INTERACTION":
+        from mothership.tasks import handle_discord_interaction
 
-    if "HANDLER" not in env:
-        raise MissingEnvironmentVariableException(
-            "Environment variable 'HANDLER' is not set"
-        )
+        return handle_discord_interaction.lambda_handler(event, context)
 
-    handler = HANDLERS.get(env["HANDLER"])
-
-    if not handler:
-        raise HandlerNotFoundException(f"Handler '{env['HANDLER']}' does not exist")
-
-    return handler(event, context)
+    raise HandlerNotFoundException(f"Handler '{handler_name}' does not exist")

@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.14
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uvx mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+        args: [mothership]
+
+      - id: prettier
+        name: prettier
+        entry: npx prettier --check
+        language: system
+        files: \.(ts|tsx)$
+
+      - id: eslint
+        name: eslint
+        entry: npx eslint
+        language: system
+        files: \.(ts|tsx)$

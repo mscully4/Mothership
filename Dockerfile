@@ -1,27 +1,14 @@
-FROM public.ecr.aws/docker/library/python:3.12
+# syntax=docker/dockerfile:1
+FROM mcr.microsoft.com/playwright/python:v1.50.0-noble
 
-RUN apt-get update && \
-    apt-get install -y \
-    g++ \
-    make \
-    cmake \
-    unzip \
-    libcurl4-openssl-dev
+WORKDIR /var/task
 
-# Set the working directory in the container
-WORKDIR /home/pwuser
-
-# Copies requirements.txt file into the container
-COPY requirements.txt ./
-
-# Install dependencies
 ENV PIP_ROOT_USER_ACTION=ignore
-RUN python3 -m pip install -r requirements.txt
-RUN python3 -m pip install awslambdaric
 
-# Copy the python source code over
-COPY ./ ./
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Use the python lambda docker runtime environment
-ENTRYPOINT [ "python3", "-m", "awslambdaric" ]
+COPY mothership/ ./mothership/
+
+ENTRYPOINT ["python3", "-m", "awslambdaric"]
 CMD ["mothership.main.process_event"]
