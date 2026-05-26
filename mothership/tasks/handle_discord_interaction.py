@@ -1,14 +1,12 @@
 import json
 import logging
 import os
-from dataclasses import dataclass, fields
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
 
 import boto3
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
-from mothership.utils.environment import get_default_or_mapping_item
 from mothership.utils.logging import configure_logging
 
 configure_logging(logging.INFO)
@@ -18,39 +16,16 @@ logger = logging.getLogger(__name__)
 INTERACTION_PING = 1
 INTERACTION_MESSAGE_COMPONENT = 3
 
-_public_key_cache: Optional[str] = None
+# Fetched at module load (Lambda init) so warm invocations skip the SM call
+_sm_client = boto3.client("secretsmanager")
+_PUBLIC_KEY_HEX: str = str(
+    _sm_client.get_secret_value(SecretId=os.environ["DISCORD_PUBLIC_KEY_SECRET_NAME"])[
+        "SecretString"
+    ]
+)
 
-
-@dataclass
-class EnvironmentConfig:
-    discord_public_key_secret_name: str
-    filtered_titles_table_name: str
-    _session: Optional[boto3.Session] = None
-
-    @classmethod
-    def from_environment(cls, env: Mapping[str, Any] = os.environ) -> "EnvironmentConfig":
-        kwargs = {field.name: get_default_or_mapping_item(field, env) for field in fields(cls)}
-        return cls(**kwargs)
-
-    def get_session(self) -> boto3.Session:
-        if self._session is None:
-            self._session = boto3.Session()
-        return self._session
-
-    def get_discord_public_key(self) -> str:
-        global _public_key_cache
-        if _public_key_cache is None:
-            sm = self.get_session().client("secretsmanager")
-            _public_key_cache = sm.get_secret_value(SecretId=self.discord_public_key_secret_name)[
-                "SecretString"
-            ]
-        return _public_key_cache
-
-    @property
-    def filtered_titles_table(self) -> Any:
-        ddb = self.get_session().resource("dynamodb")
-        return ddb.Table(self.filtered_titles_table_name)
-
+_ddb = boto3.resource("dynamodb")
+_filtered_titles_table = _ddb.Table(os.environ["FILTERED_TITLES_TABLE_NAME"])
 
 _JSON_HEADERS = {"Content-Type": "application/json"}
 
@@ -70,15 +45,12 @@ def _verify_signature(public_key_hex: str, signature_hex: str, timestamp: str, b
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
-    env_config = EnvironmentConfig.from_environment()
-    public_key = env_config.get_discord_public_key()
-
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     signature = headers.get("x-signature-ed25519", "")
     timestamp = headers.get("x-signature-timestamp", "")
     body = event.get("body") or ""
 
-    if not _verify_signature(public_key, signature, timestamp, body):
+    if not _verify_signature(_PUBLIC_KEY_HEX, signature, timestamp, body):
         logger.warning(f"Signature verification failed. sig={signature[:16]}... ts={timestamp}")
         return {"statusCode": 401, "body": "Invalid signature"}
 
@@ -91,7 +63,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         custom_id: str = interaction["data"]["custom_id"]
         if custom_id.startswith("filter:"):
             title = custom_id[len("filter:") :]
-            env_config.filtered_titles_table.put_item(Item={"Title": title})
+            _filtered_titles_table.put_item(Item={"Title": title})
             logger.info(f"Added filter for title: {title}")
             return _json_response(
                 200,
