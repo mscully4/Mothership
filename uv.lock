@@ -193,9 +193,13 @@ dependencies = [
     { name = "awslambdaric" },
     { name = "boto3" },
     { name = "mypy-boto3-dynamodb" },
-    { name = "playwright" },
     { name = "pynacl" },
     { name = "python-json-logger" },
+]
+
+[package.optional-dependencies]
+scraper = [
+    { name = "playwright" },
 ]
 
 [package.metadata]
@@ -203,10 +207,11 @@ requires-dist = [
     { name = "awslambdaric", specifier = ">=3.0" },
     { name = "boto3", specifier = ">=1.35" },
     { name = "mypy-boto3-dynamodb", specifier = ">=1.35" },
-    { name = "playwright", specifier = ">=1.50" },
+    { name = "playwright", marker = "extra == 'scraper'", specifier = ">=1.50" },
     { name = "pynacl", specifier = ">=1.5" },
     { name = "python-json-logger", specifier = ">=3.2" },
 ]
+provides-extras = ["scraper"]
 
 [[package]]
 name = "mypy-boto3-dynamodb"

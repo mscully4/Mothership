@@ -1,8 +1,7 @@
-.mypy_cache
-.vscode
-cdk.out
-dist
-lib
-node_modules
-venv
-*.json
+# Only include what the Lambda needs: Dockerfile, mothership/, pyproject.toml, uv.lock
+*
+!Dockerfile
+!mothership/
+!mothership/**
+!pyproject.toml
+!uv.lock
