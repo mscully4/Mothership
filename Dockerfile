@@ -5,8 +5,10 @@ WORKDIR /var/task
 
 ENV PIP_ROOT_USER_ACTION=ignore
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+COPY pyproject.toml uv.lock ./
+RUN uv export --no-dev --no-hashes --frozen --no-emit-project | pip install --no-cache-dir -r /dev/stdin
 
 COPY mothership/ ./mothership/
 
