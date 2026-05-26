@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 from typing import Any, Mapping
 
 import boto3
@@ -45,6 +46,8 @@ def _verify_signature(public_key_hex: str, signature_hex: str, timestamp: str, b
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
+    t0 = time.time()
+
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     signature = headers.get("x-signature-ed25519", "")
     timestamp = headers.get("x-signature-timestamp", "")
@@ -53,6 +56,9 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     if not _verify_signature(_PUBLIC_KEY_HEX, signature, timestamp, body):
         logger.warning(f"Signature verification failed. sig={signature[:16]}... ts={timestamp}")
         return {"statusCode": 401, "body": "Invalid signature"}
+
+    t1 = time.time()
+    logger.info(f"t: verify={t1 - t0:.3f}s")
 
     interaction = json.loads(body)
 
@@ -63,9 +69,11 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         custom_id: str = interaction["data"]["custom_id"]
         if custom_id.startswith("filter:"):
             title = custom_id[len("filter:") :]
+            t2 = time.time()
             _filtered_titles_table.put_item(Item={"Title": title})
-            logger.info(f"Added filter for title: {title}")
-            return _json_response(
+            t3 = time.time()
+            logger.info(f"t: put_item={t3 - t2:.3f}s total={t3 - t0:.3f}s")
+            resp = _json_response(
                 200,
                 {
                     "type": 4,
@@ -75,5 +83,8 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
                     },
                 },
             )
+            t4 = time.time()
+            logger.info(f"t: json_resp={t4 - t3:.3f}s returning at total={t4 - t0:.3f}s")
+            return resp
 
     return _json_response(200, {"type": 1})
