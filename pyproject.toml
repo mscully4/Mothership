@@ -25,7 +25,7 @@ scrape = "mothership.tasks.get_new_mothership_events:lambda_handler"
 requires = ["uv-build"]
 build-backend = "uv_build"
 
-[tool.uv-build]
+[tool.uv.build-backend]
 module-name = "mothership"
 module-root = ""
 
