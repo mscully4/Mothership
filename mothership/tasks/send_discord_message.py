@@ -57,7 +57,7 @@ def _post_event(bot_token: str, channel_id: str, event: MothershipEvent) -> None
             "components": [
                 {
                     "type": 2,
-                    "label": "Filter This Show",
+                    "label": "Filter Out",
                     "style": 4,
                     "custom_id": custom_id,
                 }
