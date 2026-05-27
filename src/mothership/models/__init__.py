@@ -1,9 +1,9 @@
 import hashlib
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 
-@dataclass(frozen=True)
-class MothershipEvent:
+class MothershipEvent(BaseModel, frozen=True):
     title: str
     dt: str
     time: str

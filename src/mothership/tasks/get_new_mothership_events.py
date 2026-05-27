@@ -1,53 +1,27 @@
 import logging
-import os
-from dataclasses import asdict, dataclass, fields
 from functools import cached_property
-from typing import Any, List, Mapping, Optional, Set
+from typing import TYPE_CHECKING, Any
 
-import boto3
-from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource, Table
 from playwright.sync_api import sync_playwright
 
+from mothership.environment import Environment
 from mothership.models import MothershipEvent
-from mothership.utils.environment import get_default_or_mapping_item
-from mothership.utils.logging import configure_logging
 
-configure_logging(logging.INFO)
-
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from mypy_boto3_dynamodb.service_resource import Table
 
 
-@dataclass
-class EnvironmentConfig:
-    aws_region: str
+class GetNewMothershipEventsEnvironment(Environment):
     events_table_name: str
-    filtered_titles_table_name: str
-    _session: Optional[boto3.Session] = None
-
-    @classmethod
-    def from_environment(cls, env: Mapping[str, Any] = os.environ) -> "EnvironmentConfig":
-        kwargs = {field.name: get_default_or_mapping_item(field, env) for field in fields(cls)}
-        return cls(**kwargs)
-
-    def get_session(self) -> boto3.Session:
-        if self._session is None:
-            self._session = boto3.Session(region_name=self.aws_region)
-        return self._session
 
     @cached_property
-    def events_table(self) -> Table:
-        ddb: DynamoDBServiceResource = self.get_session().resource("dynamodb")
-        return ddb.Table(self.events_table_name)
-
-    @cached_property
-    def filtered_titles_table(self) -> Table:
-        ddb: DynamoDBServiceResource = self.get_session().resource("dynamodb")
-        return ddb.Table(self.filtered_titles_table_name)
+    def events_table(self) -> "Table":
+        return self.dynamodb_resource.Table(self.events_table_name)
 
 
-def get_filtered_titles(table: Table) -> set[str]:
-    resp = table.scan(ProjectionExpression="Title")
-    return {item["Title"] for item in resp.get("Items", [])}
+def get_filtered_titles(env: GetNewMothershipEventsEnvironment) -> set[str]:
+    resp = env.filtered_titles_table.scan(ProjectionExpression="Title")
+    return {str(item["Title"]) for item in resp.get("Items", [])}
 
 
 def get_all_events() -> list[MothershipEvent]:
@@ -106,18 +80,18 @@ def get_all_events() -> list[MothershipEvent]:
 
 
 def process_new_mothership_events(
-    table: Table,
-    mothership_events: List[MothershipEvent],
+    env: GetNewMothershipEventsEnvironment,
+    mothership_events: list[MothershipEvent],
     filtered_titles: set[str],
-) -> Set[MothershipEvent]:
-    new_events: Set[MothershipEvent] = set()
-    with table.batch_writer() as batch:
+) -> set[MothershipEvent]:
+    new_events: set[MothershipEvent] = set()
+    with env.events_table.batch_writer() as batch:
         for event in mothership_events:
             key = {"Hash": event.make_hash()}
-            resp = table.get_item(Key=key)
+            resp = env.events_table.get_item(Key=key)
 
             if "Item" not in resp:
-                batch.put_item(Item={**key, **asdict(event)})
+                batch.put_item(Item={**key, **event.model_dump()})
                 if event.title not in filtered_titles:
                     new_events.add(event)
 
@@ -125,13 +99,12 @@ def process_new_mothership_events(
 
 
 def lambda_handler(event: Any = None, context: Any = None) -> list[dict[str, Any]]:
-    env_config = EnvironmentConfig.from_environment()
+    env = GetNewMothershipEventsEnvironment.from_environment()
+    logger = env.create_logger(__name__, logging.INFO)
 
-    filtered_titles = get_filtered_titles(env_config.filtered_titles_table)
+    filtered_titles = get_filtered_titles(env)
     all_events: list[MothershipEvent] = get_all_events()
-    new_events: set[MothershipEvent] = process_new_mothership_events(
-        env_config.events_table, all_events, filtered_titles
-    )
+    new_events = process_new_mothership_events(env, all_events, filtered_titles)
     logger.info("Finished!")
 
-    return [asdict(mothership_event) for mothership_event in new_events]
+    return [mothership_event.model_dump() for mothership_event in new_events]

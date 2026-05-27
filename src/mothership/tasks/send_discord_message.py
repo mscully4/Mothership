@@ -1,52 +1,25 @@
 import logging
-import os
-from dataclasses import dataclass, fields
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
 
-import boto3
-
+from mothership.environment import Environment
 from mothership.models import MothershipEvent
-from mothership.utils.environment import get_default_or_mapping_item
-from mothership.utils.logging import configure_logging
 from mothership.wrappers.discord_wrapper import post_message
 
-configure_logging(logging.INFO)
 
-logger = logging.getLogger(__name__)
-
-
-@dataclass
-class EnvironmentConfig:
+class SendDiscordMessageEnvironment(Environment):
     discord_bot_token_secret_name: str
     discord_channel_id: str
-    filtered_titles_table_name: str
-    _session: Optional[boto3.Session] = None
-
-    @classmethod
-    def from_environment(cls, env: Mapping[str, Any] = os.environ) -> "EnvironmentConfig":
-        kwargs = {field.name: get_default_or_mapping_item(field, env) for field in fields(cls)}
-        return cls(**kwargs)
-
-    def get_session(self) -> boto3.Session:
-        if self._session is None:
-            self._session = boto3.Session()
-        return self._session
 
     def get_bot_token(self) -> str:
-        client = self.get_session().client("secretsmanager")
+        client = self.boto3_session.client("secretsmanager")
         return str(
             client.get_secret_value(SecretId=self.discord_bot_token_secret_name)["SecretString"]
         )
 
-    @property
-    def filtered_titles_table(self) -> Any:
-        ddb = self.get_session().resource("dynamodb")
-        return ddb.Table(self.filtered_titles_table_name)
 
-
-def _get_filtered_titles(table: Any) -> set[str]:
-    resp = table.scan(ProjectionExpression="Title")
-    return {item["Title"] for item in resp.get("Items", [])}
+def _get_filtered_titles(env: SendDiscordMessageEnvironment) -> set[str]:
+    resp = env.filtered_titles_table.scan(ProjectionExpression="Title")
+    return {str(item["Title"]) for item in resp.get("Items", [])}
 
 
 def _post_event(bot_token: str, channel_id: str, event: MothershipEvent) -> None:
@@ -73,9 +46,10 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> None:
     if not inserts:
         return
 
-    env_config = EnvironmentConfig.from_environment()
-    bot_token = env_config.get_bot_token()
-    filtered_titles = _get_filtered_titles(env_config.filtered_titles_table)
+    env = SendDiscordMessageEnvironment.from_environment()
+    logger = env.create_logger(__name__, logging.INFO)
+    bot_token = env.get_bot_token()
+    filtered_titles = _get_filtered_titles(env)
 
     for record in inserts:
         img = record["dynamodb"].get("NewImage", {})
@@ -91,6 +65,6 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> None:
             room=img.get("room", {}).get("S", ""),
         )
         logger.info(f"Posting event: {mothership_event}")
-        _post_event(bot_token, env_config.discord_channel_id, mothership_event)
+        _post_event(bot_token, env.discord_channel_id, mothership_event)
 
     logger.info("Finished!")

@@ -1,31 +1,34 @@
 import json
 import logging
-import os
+from functools import cached_property
 from typing import Any, Mapping
 
-import boto3
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
-from mothership.utils.logging import configure_logging
+from mothership.environment import Environment
 
-configure_logging(logging.INFO)
 
-logger = logging.getLogger(__name__)
+class HandleDiscordInteractionEnvironment(Environment):
+    discord_public_key_secret_name: str
+
+    @cached_property
+    def discord_public_key(self) -> str:
+        client = self.boto3_session.client("secretsmanager")
+        return str(
+            client.get_secret_value(SecretId=self.discord_public_key_secret_name)["SecretString"]
+        )
+
 
 INTERACTION_PING = 1
 INTERACTION_MESSAGE_COMPONENT = 3
 
-# Fetched at module load (Lambda init) so warm invocations skip the SM call
-_sm_client = boto3.client("secretsmanager")
-_PUBLIC_KEY_HEX: str = str(
-    _sm_client.get_secret_value(SecretId=os.environ["DISCORD_PUBLIC_KEY_SECRET_NAME"])[
-        "SecretString"
-    ]
-)
+# Fetch secrets and warm DynamoDB connection during Lambda init to beat Discord's 3s deadline
+_env = HandleDiscordInteractionEnvironment.from_environment()
+logger = _env.create_logger(__name__, logging.INFO)
 
-_ddb = boto3.resource("dynamodb")
-_filtered_titles_table = _ddb.Table(os.environ["FILTERED_TITLES_TABLE_NAME"])
+_PUBLIC_KEY_HEX = _env.discord_public_key
+_env.filtered_titles_table.get_item(Key={"Title": "__warmup__"})
 
 _JSON_HEADERS = {"Content-Type": "application/json"}
 
@@ -63,7 +66,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         custom_id: str = interaction["data"]["custom_id"]
         if custom_id.startswith("filter:"):
             title = custom_id[len("filter:") :]
-            _filtered_titles_table.put_item(Item={"Title": title})
+            _env.filtered_titles_table.put_item(Item={"Title": title})
             logger.info(f"Added filter for title: {title}")
             return _json_response(
                 200,

@@ -10,11 +10,11 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: uvx mypy
+        entry: uv run mypy
         language: system
         types: [python]
         pass_filenames: false
-        args: [mothership]
+        args: [src/mothership]
 
       - id: prettier
         name: prettier
