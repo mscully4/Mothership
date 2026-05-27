@@ -43,15 +43,15 @@ Discord interactions (e.g. "Filter This Show" button) are handled by a separate 
 
 ### Single Docker Image, Multiple Handlers
 
-All Lambdas use the same Docker image (`Dockerfile` → `mothership.main.process_event`). The `HANDLER` env var selects which task runs:
-- `SEND_NOTIFICATION` → `mothership/tasks/send_discord_message.py`
-- `HANDLE_DISCORD_INTERACTION` → `mothership/tasks/handle_discord_interaction.py`
+Both Lambdas share one Docker image (`Dockerfile` → `mothership.main.process_event`). The `HANDLER` env var selects which task runs:
+- `SEND_NOTIFICATION` → `src/mothership/tasks/send_discord_message.py`
+- `HANDLE_DISCORD_INTERACTION` → `src/mothership/tasks/handle_discord_interaction.py`
 
-`mothership/main.py` routes based on `HANDLER`.
+`src/mothership/main.py` routes based on `HANDLER`.
 
 ### Environment Config Pattern
 
-Each task module defines a local `EnvironmentConfig` dataclass. Fields are populated from env vars by uppercasing the field name — see `mothership/utils/environment.py:get_default_or_mapping_item`. Fields with `dataclasses.MISSING` default require the env var to be set.
+`src/mothership/environment.py` defines a shared `Environment` Pydantic model. Fields are populated from env vars by uppercasing the field name — see `_get_default_or_mapping_item`. Fields without a default require the env var to be set. The `Environment` class also provides cached `boto3_session`, `dynamodb_resource`, `filtered_titles_table` properties and a `create_logger` factory.
 
 ### Infrastructure
 
@@ -61,10 +61,12 @@ Each task module defines a local `EnvironmentConfig` dataclass. Fields are popul
 
 | File | Purpose |
 |------|---------|
-| `mothership/main.py` | Lambda entrypoint, handler routing |
-| `mothership/tasks/send_discord_message.py` | DynamoDB stream → Discord notification |
-| `mothership/tasks/handle_discord_interaction.py` | Discord button interactions |
-| `mothership/tasks/get_new_mothership_events.py` | Scraping + DynamoDB deduplication |
-| `mothership/models/__init__.py` | `MothershipEvent` dataclass + hash/message formatting |
+| `src/mothership/main.py` | Lambda entrypoint, handler routing |
+| `src/mothership/tasks/send_discord_message.py` | DynamoDB stream → Discord notification |
+| `src/mothership/tasks/handle_discord_interaction.py` | Discord button interactions |
+| `src/mothership/tasks/get_new_mothership_events.py` | Scraping + DynamoDB deduplication |
+| `src/mothership/models/__init__.py` | `MothershipEvent` Pydantic model + hash/message formatting |
+| `src/mothership/environment.py` | Shared `Environment` Pydantic config + boto3/logging setup |
+| `src/mothership/wrappers/discord_wrapper.py` | Discord API client |
 | `lib/stacks/mothership-stack.ts` | All CDK infrastructure |
 | `scripts/scrape.py` | Local scraper runner |
