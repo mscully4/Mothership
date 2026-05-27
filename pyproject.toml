@@ -13,6 +13,7 @@ dependencies = [
     "mypy-boto3-dynamodb>=1.35",
     "pydantic>=2.0",
     "awslambdaric>=3.0",
+    "aws-embedded-metrics>=3.5.0",
 ]
 
 [project.optional-dependencies]
@@ -55,5 +56,5 @@ strict = true
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = ["boto3.*", "botocore.*", "nacl.*", "awslambdaric.*", "pythonjsonlogger.*", "mypy_boto3_dynamodb.*", "playwright.*"]
+module = ["boto3.*", "botocore.*", "nacl.*", "awslambdaric.*", "pythonjsonlogger.*", "mypy_boto3_dynamodb.*", "playwright.*", "aws_embedded_metrics.*"]
 ignore_missing_imports = true

@@ -3,6 +3,8 @@ import logging
 from functools import cached_property
 from typing import Any, Mapping
 
+from aws_embedded_metrics import metric_scope  # type: ignore[attr-defined]
+from aws_embedded_metrics.logger.metrics_logger import MetricsLogger
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
@@ -23,13 +25,10 @@ class HandleDiscordInteractionEnvironment(Environment):
 INTERACTION_PING = 1
 INTERACTION_MESSAGE_COMPONENT = 3
 
-# Fetch secrets and warm DynamoDB connection during Lambda init to beat Discord's 3s deadline
 _env = HandleDiscordInteractionEnvironment.from_environment()
 logger = _env.create_logger(__name__, logging.INFO)
 
 _PUBLIC_KEY_HEX = _env.discord_public_key
-_env.filtered_titles_table.get_item(Key={"Title": "__warmup__"})
-
 _JSON_HEADERS = {"Content-Type": "application/json"}
 
 
@@ -47,7 +46,13 @@ def _verify_signature(public_key_hex: str, signature_hex: str, timestamp: str, b
         return False
 
 
-def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
+@metric_scope
+def lambda_handler(
+    event: Mapping[str, Any], context: Any, metrics: MetricsLogger
+) -> dict[str, Any]:
+    metrics.set_namespace("mothership")
+
+    logger.info("Handling discord interaction", extra={"interation": event})
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     signature = headers.get("x-signature-ed25519", "")
     timestamp = headers.get("x-signature-timestamp", "")
@@ -68,7 +73,8 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             title = custom_id[len("filter:") :]
             _env.filtered_titles_table.put_item(Item={"Title": title})
             logger.info(f"Added filter for title: {title}")
-            return _json_response(
+            metrics.put_metric("FiltersAdded", 1, "Count")
+            response = _json_response(
                 200,
                 {
                     "type": 4,
@@ -78,5 +84,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
                     },
                 },
             )
+            logger.info("Responding with", extra={"response": response})
+            return response
 
-    return _json_response(200, {"type": 1})
+    return {"statusCode": 400, "body": "unknown interaction type"}

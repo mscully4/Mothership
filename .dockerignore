@@ -1,7 +1,8 @@
-# Only include what the Lambda needs: Dockerfile, mothership/, pyproject.toml, uv.lock
+# Only include what the Lambda needs
 *
 !Dockerfile
-!mothership/
-!mothership/**
+!src/
+!src/mothership/
+!src/mothership/**
 !pyproject.toml
 !uv.lock

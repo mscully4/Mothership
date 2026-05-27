@@ -2,6 +2,8 @@ import logging
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
+from aws_embedded_metrics import metric_scope  # type: ignore[attr-defined]
+from aws_embedded_metrics.logger.metrics_logger import MetricsLogger
 from playwright.sync_api import sync_playwright
 
 from mothership.environment import Environment
@@ -98,13 +100,22 @@ def process_new_mothership_events(
     return new_events
 
 
-def lambda_handler(event: Any = None, context: Any = None) -> list[dict[str, Any]]:
+@metric_scope
+def lambda_handler(
+    event: Any = None,
+    context: Any = None,
+    metrics: MetricsLogger = None,  # type: ignore[assignment]
+) -> list[dict[str, Any]]:
+    metrics.set_namespace("mothership")
     env = GetNewMothershipEventsEnvironment.from_environment()
     logger = env.create_logger(__name__, logging.INFO)
 
     filtered_titles = get_filtered_titles(env)
     all_events: list[MothershipEvent] = get_all_events()
     new_events = process_new_mothership_events(env, all_events, filtered_titles)
+
+    metrics.put_metric("EventsScraped", len(all_events), "Count")
+    metrics.put_metric("NewEventsFound", len(new_events), "Count")
     logger.info("Finished!")
 
     return [mothership_event.model_dump() for mothership_event in new_events]

@@ -55,7 +55,7 @@ export class MothershipStack extends Stack {
         ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"),
       ],
     });
-    filteredTitlesTable.grantWriteData(interactionRole);
+    filteredTitlesTable.grantReadWriteData(interactionRole);
     discordPublicKeySecret.grantRead(interactionRole);
 
     const discordChannelId = "1508354117398171678";

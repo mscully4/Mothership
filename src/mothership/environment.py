@@ -73,7 +73,8 @@ class Environment(BaseModel):
     def filtered_titles_table(self) -> Table:
         return self.dynamodb_resource.Table(self.filtered_titles_table_name)
 
-    def create_logger(self, name: str, level: int = logging.INFO) -> logging.Logger:
+    @staticmethod
+    def create_logger(name: str, level: int = logging.INFO) -> logging.Logger:
         logger = logging.getLogger(name)
         if not logger.handlers:
             handler = logging.StreamHandler()

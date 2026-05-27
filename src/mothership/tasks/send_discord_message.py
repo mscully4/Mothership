@@ -1,6 +1,9 @@
 import logging
 from typing import Any, Mapping
 
+from aws_embedded_metrics import metric_scope  # type: ignore[attr-defined]
+from aws_embedded_metrics.logger.metrics_logger import MetricsLogger
+
 from mothership.environment import Environment
 from mothership.models import MothershipEvent
 from mothership.wrappers.discord_wrapper import post_message
@@ -40,7 +43,10 @@ def _post_event(bot_token: str, channel_id: str, event: MothershipEvent) -> None
     post_message(bot_token, channel_id, event.make_event_notification_message(), components)
 
 
-def lambda_handler(event: Mapping[str, Any], context: Any) -> None:
+@metric_scope
+def lambda_handler(event: Mapping[str, Any], context: Any, metrics: MetricsLogger) -> None:
+    metrics.set_namespace("mothership")
+
     records = event.get("Records", [])
     inserts = [r for r in records if r.get("eventName") == "INSERT"]
     if not inserts:
@@ -51,11 +57,14 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> None:
     bot_token = env.get_bot_token()
     filtered_titles = _get_filtered_titles(env)
 
+    sent = 0
+    filtered = 0
     for record in inserts:
         img = record["dynamodb"].get("NewImage", {})
         title = img.get("title", {}).get("S", "")
         if title in filtered_titles:
             logger.info(f"Skipping filtered title: {title}")
+            filtered += 1
             continue
 
         mothership_event = MothershipEvent(
@@ -66,5 +75,8 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> None:
         )
         logger.info(f"Posting event: {mothership_event}")
         _post_event(bot_token, env.discord_channel_id, mothership_event)
+        sent += 1
 
+    metrics.put_metric("NotificationsSent", sent, "Count")
+    metrics.put_metric("NotificationsFiltered", filtered, "Count")
     logger.info("Finished!")
