@@ -1,7 +1,7 @@
 import { CfnOutput, Duration, Stack, StackProps } from "aws-cdk-lib";
 import { LambdaRestApi } from "aws-cdk-lib/aws-apigateway";
 import { AttributeType, BillingMode, StreamViewType, Table } from "aws-cdk-lib/aws-dynamodb";
-import { ManagedPolicy, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
+import { ManagedPolicy, Role, ServicePrincipal, User } from "aws-cdk-lib/aws-iam";
 import { DockerImageCode, DockerImageFunction, StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { DynamoEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
@@ -103,6 +103,14 @@ export class MothershipStack extends Stack {
       proxy: true,
       deployOptions: { stageName: "prod" },
     });
+
+    const scraperUser = User.fromUserArn(
+      this,
+      "ScraperUser",
+      "arn:aws:iam::735029168602:user/ubuntu-server-1"
+    );
+    eventsTable.grantReadWriteData(scraperUser);
+    filteredTitlesTable.grantReadData(scraperUser);
 
     new CfnOutput(this, "InteractionEndpointUrl", {
       value: interactionApi.url,
